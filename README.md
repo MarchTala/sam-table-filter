@@ -4,6 +4,10 @@ An **unofficial** browser extension for [Truly Rich Club](https://trulyrichclub.
 
 > **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Truly Rich Club or Bo Sanchez. It is a personal convenience tool. **You need your own active TRC membership** — the extension only shows data your own login can already access, and no data ever leaves your browser. Nothing in this repository contains club content.
 
+<img src="assets/screenshot.png" alt="Extension popup showing categorized stock recommendations with filter chips, search, and per-stock stats" width="430">
+
+*Screenshot uses mock data — tickers and figures are invented, not actual SAM Table content.*
+
 ## What it does
 
 - Lists every SAM Table recommendation in a compact popup, grouped by category (Growth Stocks, Mature Dividend Stocks, REITs, funds, …)

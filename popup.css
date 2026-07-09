@@ -1,0 +1,228 @@
+:root {
+  --bg: #ffffff;
+  --panel: #f5f6f4;
+  --ink: #16211c;
+  --muted: #67746d;
+  --line: #e3e7e2;
+  --accent: #0f6b4f;        /* deep PSE-board green */
+  --accent-soft: #e4f2ec;
+
+  --buy: #0f6b4f;
+  --buy-bg: #e4f2ec;
+  --stop: #b3362b;
+  --stop-bg: #fbe9e6;
+  --hold: #9a6b00;
+  --hold-bg: #fdf2d7;
+  --slice: #5b4bb5;
+  --slice-bg: #edeafa;
+  --other: #4a5560;
+  --other-bg: #eceff2;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 430px;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* header, controls, and stale banner stay put — only the list scrolls */
+.topbar, .controls, .stale { flex: none; }
+.list { flex: 1; min-height: 0; overflow-y: auto; }
+.empty { flex: 1; }
+
+.topbar {
+  padding: 8px 14px 7px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.toprow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+.meta {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topactions { display: flex; gap: 6px; }
+
+button.ghost {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+button.ghost:hover { background: var(--panel); }
+button.ghost:disabled { color: var(--muted); cursor: default; }
+
+/* fixed footprint so "Refresh" → "Refreshing…" → "Updated ✓" never reflows the layout */
+#refreshBtn {
+  width: 110px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+button.ghost.ok { color: var(--buy); border-color: var(--buy); background: var(--buy-bg); }
+
+.spin {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.stale {
+  padding: 6px 14px;
+  font-size: 11.5px;
+  color: var(--hold);
+  background: var(--hold-bg);
+  border-bottom: 1px solid var(--line);
+}
+.stale a { color: var(--hold); font-weight: 700; }
+button.ghost:focus-visible, .chip:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.controls { padding: 8px 14px; display: grid; gap: 6px; border-bottom: 1px solid var(--line); }
+.controls .row { display: grid; grid-template-columns: 1.5fr 1.1fr 1fr; gap: 6px; }
+
+input[type="search"], select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none; /* many rare actions → scroll sideways instead of wrapping */
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; }
+.chip {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chip .count { color: var(--muted); font-size: 11px; }
+.chip[aria-pressed="true"] { border-color: currentColor; font-weight: 600; }
+.chip.buy   { color: var(--buy); }   .chip.buy[aria-pressed="true"]   { background: var(--buy-bg); }
+.chip.stop  { color: var(--stop); }  .chip.stop[aria-pressed="true"]  { background: var(--stop-bg); }
+.chip.hold  { color: var(--hold); }  .chip.hold[aria-pressed="true"]  { background: var(--hold-bg); }
+.chip.slice { color: var(--slice); } .chip.slice[aria-pressed="true"] { background: var(--slice-bg); }
+.chip.other { color: var(--other); } .chip.other[aria-pressed="true"] { background: var(--other-bg); }
+
+.list { padding: 6px 0 10px; }
+
+.cat {
+  padding: 7px 14px 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1px 10px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.item:hover { background: var(--panel); }
+.item:last-child { border-bottom: none; }
+
+.item .head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.item .code { font-weight: 700; font-size: 13.5px; }
+.item .name {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  justify-self: end;
+  align-self: center;
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge.buy   { color: var(--buy);   background: var(--buy-bg); }
+.badge.stop  { color: var(--stop);  background: var(--stop-bg); }
+.badge.hold  { color: var(--hold);  background: var(--hold-bg); }
+.badge.slice { color: var(--slice); background: var(--slice-bg); }
+.badge.other { color: var(--other); background: var(--other-bg); }
+
+.nums {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 3px;
+}
+.stat { min-width: 0; }
+.stat i {
+  display: block;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.stat b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.stat .up { color: var(--buy); }
+.stat .down { color: var(--stop); }
+
+.empty { padding: 34px 20px; text-align: center; color: var(--muted); }
+.empty a { color: var(--accent); font-weight: 600; text-decoration: none; display: inline-block; margin-top: 8px; }

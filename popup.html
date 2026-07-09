@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SAM Table Filter</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="toprow">
+      <h1>SAM Table</h1>
+      <div class="topactions">
+        <button id="exportBtn" class="ghost" title="Export the filtered list as CSV">CSV</button>
+        <button id="refreshBtn" class="ghost" title="Fetch the latest SAM data">Refresh</button>
+      </div>
+    </div>
+    <span id="meta" class="meta"></span>
+  </header>
+
+  <section class="controls">
+    <div class="row">
+      <input id="search" type="search" placeholder="Search code or name…" autocomplete="off" />
+      <select id="categorySel" title="Filter by category">
+        <option value="all">All categories</option>
+      </select>
+      <select id="sortSel" title="Sort">
+        <option value="default">Page order</option>
+        <option value="growth">Growth ↓</option>
+        <option value="dividend">Dividend ↓</option>
+        <option value="fromTarget">Below target</option>
+        <option value="code">Code A–Z</option>
+      </select>
+    </div>
+    <div id="actionChips" class="chips" role="group" aria-label="Filter by action"></div>
+  </section>
+
+  <div id="staleNote" class="stale" hidden></div>
+
+  <main id="list" class="list"></main>
+
+  <div id="empty" class="empty" hidden>
+    <p id="emptyMsg">Open the SAM Table page, then click Refresh.</p>
+    <a href="https://members.trulyrichclub.com/member/recommendations/sam" target="_blank" rel="noopener">Open SAM Table ↗</a>
+  </div>
+
+  <script src="parser.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

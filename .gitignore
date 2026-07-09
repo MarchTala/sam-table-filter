@@ -1,0 +1,13 @@
+# Editor / IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Build artifacts
+*.zip
+*.xpi
+
+# Never commit scraped data or exports
+*.csv

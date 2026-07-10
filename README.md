@@ -88,6 +88,7 @@ The header always shows when the club last updated the table and when the extens
 | `popup.html` / `popup.css` / `popup.js` | The toolbar popup UI and data flow |
 | `parser.js` | Shared table-parsing logic (used by both the popup and the content script) |
 | `content.js` | Content script that answers scrape requests on the SAM page |
+| `tools/screenshots/` | Playwright harness that regenerates the README screenshots from mock data (see its README) |
 
 The scraper is intentionally generic: it picks up any table with a `Stocks`/`Code` column and an `Action` column and uses the nearest heading above it as the category. If the site's markup changes, adjust the regexes in `parser.js` (`headerMap`).
 

@@ -1,0 +1,11 @@
+{
+  "name": "sam-table-filter-screenshots",
+  "private": true,
+  "description": "Regenerates the README screenshots from mock data",
+  "scripts": {
+    "shoot": "node shoot-readme.js"
+  },
+  "dependencies": {
+    "playwright": "^1.55"
+  }
+}

@@ -14,6 +14,10 @@ const state = {
   category: "all",
   search: "",
   sort: "default",
+  view: "dashboard", // "dashboard" | "favorites" | "settings"
+  detailCode: null,
+  favorites: new Set(),
+  settings: { theme: "system", density: "comfortable" },
 };
 
 function actionClass(action) {
@@ -31,12 +35,61 @@ function actionShort(action) {
   return { buy: "Buy", stop: "Stop", hold: "Hold", slice: "Slice" }[cls] || action;
 }
 
+const ACTION_ICON = { buy: "i-trend-up", stop: "i-stop", hold: "i-hold", slice: "i-slice", other: "i-dot" };
+
+function icon(id, cls = "i") {
+  return `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
+}
+
 function fmt(n, digits = 2) {
   if (n == null) return "—";
   return n.toLocaleString("en-PH", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
+}
+
+// ---------- theme & settings ----------
+
+function applySettings() {
+  const root = document.documentElement;
+  if (state.settings.theme === "system") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", state.settings.theme);
+  root.setAttribute("data-density", state.settings.density);
+
+  document.querySelectorAll("#themeSeg [data-theme-opt]").forEach((b) =>
+    b.setAttribute("aria-checked", b.dataset.themeOpt === state.settings.theme ? "true" : "false")
+  );
+  document.querySelectorAll("#densitySeg [data-density-opt]").forEach((b) =>
+    b.setAttribute("aria-checked", b.dataset.densityOpt === state.settings.density ? "true" : "false")
+  );
+}
+
+async function loadPrefs() {
+  const { samPrefs, samFavorites } = await chrome.storage.local.get(["samPrefs", "samFavorites"]);
+  if (samPrefs) Object.assign(state.settings, samPrefs);
+  if (Array.isArray(samFavorites)) state.favorites = new Set(samFavorites);
+  applySettings();
+}
+
+function savePrefs() {
+  chrome.storage.local.set({ samPrefs: state.settings, samFavorites: [...state.favorites] });
+}
+
+// ---------- toast ----------
+
+let toastTimer = null;
+function showToast(msg, iconId = "i-check") {
+  const t = $("toast");
+  clearTimeout(toastTimer);
+  t.classList.remove("hide");
+  t.innerHTML = `${icon(iconId)}<span></span>`;
+  t.lastElementChild.textContent = msg;
+  t.hidden = false;
+  toastTimer = setTimeout(() => {
+    t.classList.add("hide");
+    toastTimer = setTimeout(() => { t.hidden = true; t.classList.remove("hide"); }, 200);
+  }, 1800);
 }
 
 // ---------- data ----------
@@ -205,7 +258,11 @@ function renderMeta() {
   if (state.lastUpdated) parts.push(`Updated ${state.lastUpdated}`);
   if (state.scrapedAt)
     parts.push(`read ${new Date(state.scrapedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
-  $("meta").textContent = parts.join(" · ");
+  $("meta").textContent = parts.join(" · ") || " ";
+
+  $("sourceHint").textContent = state.scrapedAt
+    ? `${state.source === "live" ? "Live" : "Cached"} · read ${new Date(state.scrapedAt).toLocaleString()}`
+    : "No data yet";
 }
 
 function renderStale() {
@@ -217,12 +274,63 @@ function renderStale() {
   const when = state.scrapedAt
     ? ` from ${new Date(state.scrapedAt).toLocaleString()}`
     : "";
-  note.innerHTML = state.needsLogin
-    ? `⚠️ Cached data${when} — you're logged out. ` +
-      `<a href="${SAM_URL}" target="_blank" rel="noopener">Log in ↗</a> then hit Refresh.`
-    : `⚠️ Cached data${when} — couldn't fetch fresh data. ` +
-      `<a href="${SAM_URL}" target="_blank" rel="noopener">Open the SAM page ↗</a> and hit Refresh there.`;
+  $("staleMsg").innerHTML = state.needsLogin
+    ? `Cached data${when} — you're logged out. ` +
+      `<a href="${SAM_URL}" target="_blank" rel="noopener">Log in ↗</a> then refresh.`
+    : `Cached data${when} — couldn't fetch fresh data. ` +
+      `<a href="${SAM_URL}" target="_blank" rel="noopener">Open the SAM page ↗</a> and refresh there.`;
   note.hidden = false;
+}
+
+// Quick stats: total + the three most common action groups, click to filter
+const STAT_DEFS = [
+  { key: "all", label: "Stocks", icon: "i-layers", color: "var(--accent)", bg: "var(--accent-soft)" },
+  { key: "buy", label: "Buy", icon: "i-trend-up", color: "var(--buy)", bg: "var(--buy-bg)" },
+  { key: "hold", label: "Hold", icon: "i-hold", color: "var(--hold)", bg: "var(--hold-bg)" },
+  { key: "stop", label: "Stop", icon: "i-stop", color: "var(--stop)", bg: "var(--stop-bg)" },
+];
+
+function actionsOfClass(cls) {
+  return [...new Set(state.items.filter((it) => actionClass(it.action) === cls).map((it) => it.action))];
+}
+
+function statFilterActive(cls) {
+  if (cls === "all") return state.activeActions.size === 0;
+  const actions = actionsOfClass(cls);
+  return actions.length > 0 &&
+    state.activeActions.size === actions.length &&
+    actions.every((a) => state.activeActions.has(a));
+}
+
+function renderStats() {
+  const wrap = $("stats");
+  wrap.innerHTML = "";
+  STAT_DEFS.forEach((def) => {
+    const count = def.key === "all"
+      ? state.items.length
+      : state.items.filter((it) => actionClass(it.action) === def.key).length;
+
+    const btn = document.createElement("button");
+    btn.className = "statcard";
+    btn.style.setProperty("--sc", def.color);
+    btn.style.setProperty("--scbg", def.bg);
+    btn.setAttribute("aria-pressed", statFilterActive(def.key) ? "true" : "false");
+    btn.title = def.key === "all" ? "Show all stocks" : `Filter: ${def.label}`;
+    btn.innerHTML =
+      `<span class="sc-top">${icon(def.icon)}<span class="sc-label">${def.label}</span></span>` +
+      `<span class="sc-num">${count}</span>`;
+    btn.addEventListener("click", () => {
+      if (def.key === "all" || statFilterActive(def.key)) {
+        state.activeActions.clear();
+      } else {
+        state.activeActions = new Set(actionsOfClass(def.key));
+      }
+      renderStats();
+      renderControls();
+      renderList();
+    });
+    wrap.appendChild(btn);
+  });
 }
 
 function renderControls() {
@@ -237,16 +345,33 @@ function renderControls() {
 
   const chips = $("actionChips");
   chips.innerHTML = "";
+
+  if (actions.length) {
+    const all = document.createElement("button");
+    all.className = "chip all";
+    all.setAttribute("aria-pressed", state.activeActions.size === 0 ? "true" : "false");
+    all.innerHTML = `${icon("i-layers")}All`;
+    all.addEventListener("click", () => {
+      state.activeActions.clear();
+      renderStats();
+      renderControls();
+      renderList();
+    });
+    chips.appendChild(all);
+  }
+
   actions.forEach((action) => {
+    const cls = actionClass(action);
     const btn = document.createElement("button");
-    btn.className = `chip ${actionClass(action)}`;
+    btn.className = `chip ${cls}`;
     btn.setAttribute("aria-pressed", state.activeActions.has(action) ? "true" : "false");
     btn.title = action;
-    btn.innerHTML = `${actionShort(action)} <span class="count">${counts.get(action)}</span>`;
+    btn.innerHTML = `${icon(ACTION_ICON[cls])}${actionShort(action)} <span class="count">${counts.get(action)}</span>`;
     btn.addEventListener("click", () => {
       state.activeActions.has(action)
         ? state.activeActions.delete(action)
         : state.activeActions.add(action);
+      renderStats();
       renderControls();
       renderList();
     });
@@ -266,6 +391,70 @@ function renderControls() {
   sel.value = [...sel.options].some((o) => o.value === current) ? current : "all";
 }
 
+function buildCard(it, { showName = true } = {}) {
+  const row = document.createElement("div");
+  row.className = "item";
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
+  row.setAttribute("aria-label", `${it.code} details`);
+
+  const head = document.createElement("div");
+  head.className = "head";
+  const code = document.createElement("span");
+  code.className = "code";
+  code.textContent = it.code;
+  head.appendChild(code);
+  if (showName) {
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = it.name || it.category;
+    head.appendChild(name);
+  }
+
+  const badge = document.createElement("span");
+  badge.className = `badge ${actionClass(it.action)}`;
+  badge.textContent = it.action;
+
+  const star = document.createElement("button");
+  star.className = "starbtn" + (state.favorites.has(it.code) ? " on" : "");
+  star.setAttribute("aria-label", state.favorites.has(it.code) ? `Unfavorite ${it.code}` : `Favorite ${it.code}`);
+  star.setAttribute("aria-pressed", state.favorites.has(it.code) ? "true" : "false");
+  star.innerHTML = icon("i-star");
+  star.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleFavorite(it.code);
+  });
+
+  row.appendChild(head);
+  row.appendChild(badge);
+  row.appendChild(star);
+
+  if (it.current != null) {
+    const nums = document.createElement("div");
+    nums.className = "nums";
+    const growthCls = it.growth != null && it.growth < 0 ? "down" : "up";
+    const ftCls = it.fromTarget != null && it.fromTarget > 0 ? "down" : "up";
+    const stat = (label, value, cls = "") =>
+      `<span class="stat"><i>${label}</i><b class="${cls}">${value}</b></span>`;
+    nums.innerHTML =
+      stat("Now", fmt(it.current)) +
+      stat("Buy", fmt(it.buyBelow)) +
+      stat("Target", fmt(it.target)) +
+      stat("Growth", `${fmt(it.growth)}%`, growthCls) +
+      stat("Div", `${fmt(it.dividend, 1)}%`) +
+      stat("vs Tgt", `${fmt(it.fromTarget)}%`, ftCls);
+    row.appendChild(nums);
+  }
+
+  const open = () => openDetail(it.code);
+  row.addEventListener("click", open);
+  row.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+  });
+
+  return row;
+}
+
 function renderList() {
   const list = $("list");
   const empty = $("empty");
@@ -275,10 +464,10 @@ function renderList() {
   if (!items.length) {
     empty.hidden = false;
     $("emptyMsg").textContent = state.items.length
-      ? "No entries match the current filters."
+      ? "No recommendations match the current filters."
       : state.needsLogin
-        ? "Your trulyrichclub.com session has expired. Log in once, then click Refresh."
-        : "Open the SAM Table page, then click Refresh.";
+        ? "Your trulyrichclub.com session has expired. Log in once, then refresh."
+        : "No recommendations found. Open the SAM Table page, then refresh.";
     return;
   }
   empty.hidden = true;
@@ -294,49 +483,144 @@ function renderList() {
       cat.textContent = it.category;
       list.appendChild(cat);
     }
-
-    const row = document.createElement("div");
-    row.className = "item";
-
-    const head = document.createElement("div");
-    head.className = "head";
-    const code = document.createElement("span");
-    code.className = "code";
-    code.textContent = it.code;
-    head.appendChild(code);
-    if (it.name || !grouping) {
-      const name = document.createElement("span");
-      name.className = "name";
-      name.textContent = it.name || it.category;
-      head.appendChild(name);
-    }
-
-    const badge = document.createElement("span");
-    badge.className = `badge ${actionClass(it.action)}`;
-    badge.textContent = it.action;
-
-    row.appendChild(head);
-    row.appendChild(badge);
-
-    if (it.current != null) {
-      const nums = document.createElement("div");
-      nums.className = "nums";
-      const growthCls = it.growth != null && it.growth < 0 ? "down" : "up";
-      const ftCls = it.fromTarget != null && it.fromTarget > 0 ? "down" : "up";
-      const stat = (label, value, cls = "") =>
-        `<span class="stat"><i>${label}</i><b class="${cls}">${value}</b></span>`;
-      nums.innerHTML =
-        stat("Now", fmt(it.current)) +
-        stat("Buy", fmt(it.buyBelow)) +
-        stat("Target", fmt(it.target)) +
-        stat("Growth", `${fmt(it.growth)}%`, growthCls) +
-        stat("Div", `${fmt(it.dividend, 1)}%`) +
-        stat("vs Tgt", `${fmt(it.fromTarget)}%`, ftCls);
-      row.appendChild(nums);
-    }
-
-    list.appendChild(row);
+    list.appendChild(buildCard(it, { showName: !!it.name || !grouping }));
   });
+}
+
+function renderFavorites() {
+  const list = $("favList");
+  const empty = $("favEmpty");
+  const items = state.items.filter((it) => state.favorites.has(it.code));
+
+  list.innerHTML = "";
+  empty.hidden = items.length > 0;
+  items.forEach((it) => list.appendChild(buildCard(it)));
+
+  const badge = $("favBadge");
+  badge.hidden = state.favorites.size === 0;
+  badge.textContent = state.favorites.size;
+}
+
+function toggleFavorite(code) {
+  const adding = !state.favorites.has(code);
+  adding ? state.favorites.add(code) : state.favorites.delete(code);
+  savePrefs();
+  renderFavorites();
+  if (state.view === "dashboard") renderList();
+  if (state.detailCode) renderDetailFav();
+  showToast(adding ? `${code} added to favorites` : `${code} removed from favorites`, "i-star");
+}
+
+// ---------- skeleton ----------
+
+function setSkeleton(on) {
+  const skel = $("skeleton");
+  if (on) {
+    skel.innerHTML = Array.from({ length: 6 }, () =>
+      `<div class="skel">
+        <div class="top"><span class="bar w40"></span><span class="bar w25"></span></div>
+        <div class="grid">${'<span class="bar"></span>'.repeat(6)}</div>
+      </div>`
+    ).join("");
+    $("list").hidden = true;
+    $("empty").hidden = true;
+  } else {
+    skel.innerHTML = "";
+    $("list").hidden = false;
+  }
+  skel.hidden = !on;
+}
+
+// ---------- detail panel ----------
+
+function renderDetailFav() {
+  const btn = $("detailFav");
+  const on = state.detailCode && state.favorites.has(state.detailCode);
+  btn.classList.toggle("on", !!on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function openDetail(code) {
+  const it = state.items.find((x) => x.code === code);
+  if (!it) return;
+  state.detailCode = code;
+
+  const growthCls = it.growth != null && it.growth < 0 ? "down" : "up";
+  const ftCls = it.fromTarget != null && it.fromTarget > 0 ? "down" : "up";
+  const cell = (label, value, cls = "") =>
+    `<div class="d-cell"><i>${label}</i><b class="${cls}">${value}</b></div>`;
+
+  const body = $("detailBody");
+  body.innerHTML = `
+    <section class="d-hero">
+      <div class="d-head">
+        <span class="d-code"></span>
+        <span class="badge ${actionClass(it.action)}"></span>
+      </div>
+      <div class="d-name"></div>
+      <span class="d-cat"></span>
+      <div class="d-prices">
+        <div class="d-price"><i>Current</i><b>${fmt(it.current)}</b></div>
+        <div class="d-price"><i>Buy below</i><b>${fmt(it.buyBelow)}</b></div>
+        <div class="d-price"><i>Target</i><b>${fmt(it.target)}</b></div>
+      </div>
+    </section>
+    <div class="d-grid">
+      ${cell("Expected growth", `${fmt(it.growth)}%`, growthCls)}
+      ${cell("From target", `${fmt(it.fromTarget)}%`, ftCls)}
+      ${cell("Dividend yield", `${fmt(it.dividend, 1)}%`)}
+      ${cell("Max allocation", it.maxPct != null ? `${fmt(it.maxPct, 0)}%` : "—")}
+    </div>
+    <div class="d-actions">
+      <button id="dCopy" class="btn ghost">${icon("i-copy")}Copy ticker</button>
+      <a class="btn ghost" href="${SAM_URL}" target="_blank" rel="noopener">${icon("i-external")}SAM page</a>
+    </div>
+  `;
+  // user-controlled strings go in via textContent
+  body.querySelector(".d-code").textContent = it.code;
+  body.querySelector(".badge").textContent = it.action;
+  body.querySelector(".d-name").textContent = it.name || " ";
+  body.querySelector(".d-cat").textContent = it.category || "";
+
+  body.querySelector("#dCopy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(it.code);
+      showToast(`${it.code} copied to clipboard`);
+    } catch {
+      showToast("Couldn't copy", "i-alert");
+    }
+  });
+
+  renderDetailFav();
+  const panel = $("detail");
+  panel.classList.remove("closing");
+  panel.hidden = false;
+  $("detailBack").focus();
+}
+
+function closeDetail() {
+  const panel = $("detail");
+  if (panel.hidden) return;
+  state.detailCode = null;
+  panel.classList.add("closing");
+  setTimeout(() => { panel.hidden = true; panel.classList.remove("closing"); }, 180);
+}
+
+// ---------- navigation ----------
+
+function switchView(view) {
+  state.view = view;
+  closeDetail();
+  $("viewDashboard").hidden = view !== "dashboard";
+  $("viewFavorites").hidden = view !== "favorites";
+  $("viewSettings").hidden = view !== "settings";
+  document.querySelectorAll(".navbtn").forEach((b) => {
+    const active = b.dataset.nav === view;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  if (view === "favorites") renderFavorites();
 }
 
 // ---------- CSV export ----------
@@ -359,48 +643,112 @@ function exportCsv() {
   a.download = `sam-table-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  showToast(`Exported ${items.length} rows`);
+}
+
+// ---------- refresh ----------
+
+async function doRefresh() {
+  const btn = $("refreshBtn");
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add("spinning");
+  if (!state.items.length) setSkeleton(true);
+
+  // keep the spinner visible for at least half a second so fast fetches still register
+  await Promise.all([scrape(), sleep(500)]);
+
+  setSkeleton(false);
+  btn.classList.remove("spinning");
+  btn.disabled = false;
+
+  renderAll();
+  if (state.source === "live") showToast("Data refreshed");
+}
+
+function renderAll() {
+  renderMeta();
+  renderStats();
+  renderControls();
+  renderList();
+  renderStale();
+  if (state.view === "favorites") renderFavorites();
+  else {
+    const badge = $("favBadge");
+    badge.hidden = state.favorites.size === 0;
+    badge.textContent = state.favorites.size;
+  }
 }
 
 // ---------- init ----------
 
 async function init() {
-  $("search").addEventListener("input", (e) => { state.search = e.target.value; renderList(); });
+  await loadPrefs();
+
+  // search
+  const search = $("search");
+  search.addEventListener("input", (e) => {
+    state.search = e.target.value;
+    $("clearSearch").hidden = !state.search;
+    renderList();
+  });
+  $("clearSearch").addEventListener("click", () => {
+    search.value = "";
+    state.search = "";
+    $("clearSearch").hidden = true;
+    renderList();
+    search.focus();
+  });
+
   $("categorySel").addEventListener("change", (e) => { state.category = e.target.value; renderList(); });
   $("sortSel").addEventListener("change", (e) => { state.sort = e.target.value; renderList(); });
+
+  // header actions
+  $("refreshBtn").addEventListener("click", doRefresh);
+  $("emptyRefresh").addEventListener("click", doRefresh);
+  $("settingsBtn").addEventListener("click", () => switchView("settings"));
+
+  // bottom nav
+  document.querySelectorAll(".navbtn").forEach((b) =>
+    b.addEventListener("click", () => switchView(b.dataset.nav))
+  );
+
+  // settings
+  document.querySelectorAll("#themeSeg [data-theme-opt]").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.settings.theme = b.dataset.themeOpt;
+      applySettings();
+      savePrefs();
+    })
+  );
+  document.querySelectorAll("#densitySeg [data-density-opt]").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.settings.density = b.dataset.densityOpt;
+      applySettings();
+      savePrefs();
+    })
+  );
   $("exportBtn").addEventListener("click", exportCsv);
-  $("refreshBtn").addEventListener("click", async () => {
-    const btn = $("refreshBtn");
-    if (btn.disabled) return;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spin"></span>Refreshing…';
+  $("versionHint").textContent = `v${chrome.runtime.getManifest().version}`;
 
-    // keep the spinner visible for at least half a second so fast fetches still register
-    await Promise.all([scrape(), new Promise((r) => setTimeout(r, 500))]);
-
-    renderMeta();
-    renderControls();
-    renderList();
-    renderStale();
-
-    if (state.source === "live") {
-      btn.textContent = "Updated ✓";
-      btn.classList.add("ok");
-      setTimeout(() => {
-        btn.textContent = "Refresh";
-        btn.classList.remove("ok");
-        btn.disabled = false;
-      }, 1200);
-    } else {
-      btn.textContent = "Refresh";
-      btn.disabled = false;
+  // detail panel
+  $("detailBack").addEventListener("click", closeDetail);
+  $("detailFav").addEventListener("click", () => {
+    if (state.detailCode) toggleFavorite(state.detailCode);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDetail();
+    if (e.key === "/" && document.activeElement !== search) {
+      e.preventDefault();
+      switchView("dashboard");
+      search.focus();
     }
   });
 
+  setSkeleton(true);
   await scrape();
-  renderMeta();
-  renderControls();
-  renderList();
-  renderStale();
+  setSkeleton(false);
+  renderAll();
 }
 
 init();

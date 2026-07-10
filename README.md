@@ -4,9 +4,14 @@ An **unofficial** browser extension for [Truly Rich Club](https://trulyrichclub.
 
 > **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Truly Rich Club or Bo Sanchez. It is a personal convenience tool. **You need your own active TRC membership** — the extension only shows data your own login can already access, and no data ever leaves your browser. Nothing in this repository contains club content.
 
-<img src="assets/screenshot.png" alt="Extension popup showing categorized stock recommendations with filter chips, search, and per-stock stats" width="430">
+<p align="center">
+  <img src="assets/screenshot-dashboard.png" alt="Dashboard with quick stats, search, filter chips, and stock cards — light and dark themes" width="270">
+  <img src="assets/screenshot-favorites.png" alt="Favorites view with starred stocks — light and dark themes" width="270">
+  <img src="assets/screenshot-settings.png" alt="Settings with theme, density, and CSV export — light and dark themes" width="270">
+  <img src="assets/screenshot-filters.png" alt="Category and sort dropdowns expanded, showing all filter and ordering options — light and dark themes" width="270">
+</p>
 
-*Screenshot uses mock data — tickers and figures are invented, not actual SAM Table content.*
+*Each preview is split diagonally — light theme on the left, dark theme on the right. Screenshots use mock data: tickers and figures are invented, not actual SAM Table content.*
 
 ## What it does
 
@@ -14,7 +19,10 @@ An **unofficial** browser extension for [Truly Rich Club](https://trulyrichclub.
 - Filter by **action** — Continue Buying, Hold, Stop Buying, Top-slice if Green — with one-tap color-coded chips
 - Filter by **category**, full-text **search** by stock code or fund name
 - **Sort** by expected growth, dividend yield, distance below target price, or code
-- Per-stock stats at a glance: current price, buy-below, target, expected growth, dividend yield, % from target
+- Per-stock stats at a glance: current price, buy-below, target, expected growth, dividend yield, % from target — tap a card for a **detail view** with copy-ticker and quick links
+- **Quick stats cards** (Stocks / Buy / Hold / Stop) that double as one-tap filters
+- **Favorites** — star stocks to pin them to their own tab
+- **Light, dark, and system themes**, plus compact/comfortable list density
 - **CSV export** of whatever is currently filtered
 - Works from any tab: fetches the SAM page in the background using your existing logged-in session — no password stored, ever
 - Falls back to a cached snapshot when offline or logged out, with a clear "cached data" banner so you always know what you're looking at

@@ -366,7 +366,8 @@ function renderControls() {
     btn.className = `chip ${cls}`;
     btn.setAttribute("aria-pressed", state.activeActions.has(action) ? "true" : "false");
     btn.title = action;
-    btn.innerHTML = `${icon(ACTION_ICON[cls])}${actionShort(action)} <span class="count">${counts.get(action)}</span>`;
+    btn.innerHTML = `${icon(ACTION_ICON[cls])}<span class="count">${counts.get(action)}</span>`;
+    btn.insertBefore(document.createTextNode(`${actionShort(action)} `), btn.querySelector(".count"));
     btn.addEventListener("click", () => {
       state.activeActions.has(action)
         ? state.activeActions.delete(action)

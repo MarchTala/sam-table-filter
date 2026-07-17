@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
   "name": "SAM Table Filter",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Lists every SAM Table recommendation and lets you filter by action (Continue Buying, Hold, Stop Buying...), category, and search.",
   "browser_specific_settings": {
     "gecko": {
       "id": "sam-table-filter@trc.local",
-      "strict_min_version": "109.0"
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
